@@ -1,0 +1,24 @@
+# Environnements Python
+.venv311/
+venv/
+env/
+__pycache__/
+
+# Fichiers compilés
+*.pyc
+*.pyo
+*.pyd
+
+# Bases de données
+*.db
+*.sqlite
+*.sqlite3
+
+# Index FAISS
+storage/faiss_index/
+
+# Logs
+*.log
+
+# VSCode
+.vscode/
