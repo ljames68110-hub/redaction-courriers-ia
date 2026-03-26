@@ -1,0 +1,18 @@
+fastapi==0.100.0
+uvicorn[standard]==0.22.0
+SQLAlchemy==2.0.20
+pydantic==1.10.12
+python-jose==3.3.0
+passlib[bcrypt]==1.7.4
+
+python-multipart==0.0.6
+typing-extensions>=4.8.0
+# Optional for IA (install only if model runtime available)
+transformers==4.40.0
+sentence-transformers==2.2.2
+faiss-cpu==1.7.4
+torch==2.2.0
+sentence-transformers==2.2.2
+faiss-cpu==1.7.4
+numpy==1.26.0
+joblib==1.3.2
