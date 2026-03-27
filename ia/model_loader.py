@@ -1,98 +1,214 @@
 from typing import Tuple, Optional
-from core.config import settings
-import os
-
-# Attempt to load a local transformer model; fallback to dummy generator
-try:
-    from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
-    MODEL_AVAILABLE = True
-except Exception:
-    MODEL_AVAILABLE = False
-
-# Import RAG retrieval
 from ia import rag
+from datetime import datetime
 
-_model = None
-_tokenizer = None
-_generator = None
+try:
+    import ollama
+    OLLAMA_AVAILABLE = True
+except ImportError:
+    OLLAMA_AVAILABLE = False
 
-def load_model():
-    global _model, _tokenizer, _generator
-    if not MODEL_AVAILABLE:
-        return
-    model_dir = settings.MODEL_DIR
-    if os.path.exists(model_dir):
-        _tokenizer = AutoTokenizer.from_pretrained(model_dir, local_files_only=True)
-        _model = AutoModelForCausalLM.from_pretrained(model_dir, local_files_only=True)
-        # device=-1 forces CPU; si GPU disponible, adapter device param
-        _generator = pipeline("text-generation", model=_model, tokenizer=_tokenizer, device=-1)
-    else:
-        # model not present locally
-        pass
+OLLAMA_MODEL = "mistral"
 
-def _assemble_prompt(detenu: Optional[dict], detenu_id: Optional[str], type_courrier: str, motif: Optional[str], ton: str) -> str:
-    # récupérer exemples RAG si possible
+def _assemble_prompt(
+    detenu: Optional[dict],
+    detenu_id: Optional[str],
+    type_courrier: str,
+    motif: Optional[str],
+    ton: str
+) -> str:
+
+    # Date du jour en français
+    mois = ["janvier","février","mars","avril","mai","juin",
+            "juillet","août","septembre","octobre","novembre","décembre"]
+    now = datetime.now()
+    date_fr = f"{now.day} {mois[now.month-1]} {now.year}"
+
+    # Récupérer exemples RAG si disponible
     rag_context = ""
     try:
-        if detenu_id:
-            examples = rag.retrieve_examples_for_detenu(detenu_id=str(detenu_id), query=motif or "", top_k=3)
-        else:
-            # si pas d'id, tenter retrieval par motif
-            examples = rag.retrieve_examples_for_detenu(detenu_id="", query=motif or "", top_k=3)
-    except Exception:
-        examples = []
-
-    for ex in examples:
-        snippet = ex.get("snippet", "")
-        rag_context += f"Exemple précédent:\n{snippet}\n---\n"
-
-    detenu_info = ""
-    if detenu:
-        # afficher uniquement les champs utiles (éviter d'exposer trop d'infos dans le prompt si anonymisation souhaitée)
-        detenu_info = (
-            f"Nom: {detenu.get('nom','')}\n"
-            f"Prénom: {detenu.get('prenom','')}\n"
-            f"Numéro d'écrou: {detenu.get('numero_ecrou','')}\n"
-            f"Cellule: {detenu.get('cellule','')}\n"
-            f"Bâtiment: {detenu.get('batiment','')}\n"
+        examples = rag.retrieve_examples_for_detenu(
+            detenu_id=str(detenu_id) if detenu_id else "",
+            query=motif or "",
+            top_k=3
         )
+        for ex in examples:
+            rag_context += f"Exemple de courrier similaire :\n{ex.get('snippet','')}\n---\n"
+    except Exception:
+        pass
 
-    prompt = (
-        "System: Tu es un assistant qui rédige des courriers administratifs pour détenus. "
-        "Respecte le ton demandé et inclue les mentions pénitentiaires obligatoires.\n\n"
-        f"{'Context: ' + rag_context if rag_context else ''}\n"
-        f"Detenu:\n{detenu_info}\n"
-        f"Instruction: Rédige un courrier de type {type_courrier} pour le motif: {motif or '---'} en ton {ton}.\n\n"
-        "Rédige le texte complet, avec en‑tête et formule de politesse finale.\n\nTexte:"
+    # Infos détenu
+    nom = ""
+    prenom = ""
+    ecrou = ""
+    cellule = ""
+    batiment = ""
+    etablissement = ""
+    date_naissance = ""
+
+    if detenu:
+        nom = detenu.get('nom', '')
+        prenom = detenu.get('prenom', '')
+        ecrou = detenu.get('numero_ecrou', '')
+        cellule = detenu.get('cellule', '')
+        batiment = detenu.get('batiment', '')
+        etablissement = detenu.get('etablissement', '') or ''
+        date_naissance = detenu.get('date_naissance', '') or ''
+
+    detenu_info = (
+        f"- Nom : {nom}\n"
+        f"- Prénom : {prenom}\n"
+        f"- Numéro d'écrou : {ecrou}\n"
+        f"- Cellule : {cellule}, Bâtiment : {batiment}\n"
     )
+    if etablissement:
+        detenu_info += f"- Établissement : {etablissement}\n"
+    if date_naissance:
+        detenu_info += f"- Date de naissance : {date_naissance}\n"
+
+    destinataire = _get_destinataire(type_courrier)
+    exemples_section = ("EXEMPLES POUR INSPIRATION :\n" + rag_context) if rag_context else ""
+    motif_str = motif or "Non précisé"
+    adresse_etablissement = etablissement if etablissement else "l'établissement pénitentiaire"
+
+    prompt = f"""Tu es un juriste expert en droit pénitentiaire français, spécialisé dans la rédaction de courriers officiels pour détenus.
+
+CONSIGNES STRICTES :
+- Rédige UNIQUEMENT le courrier, rien d'autre avant ni après
+- La date du jour est : {date_fr} — utilise cette date exacte, pas une autre
+- Le destinataire exact est : {destinataire} — adresse le courrier uniquement à cette personne
+- N'invente AUCUN fait qui n'est pas mentionné dans le motif
+- Utilise le vouvoiement strict et le registre administratif formel
+- La formule de politesse finale doit être sobre et professionnelle
+- Le courrier doit être complet et prêt à envoyer
+
+STRUCTURE OBLIGATOIRE :
+1. En-tête expéditeur (nom, prénom, numéro d'écrou, cellule, établissement)
+2. En-tête destinataire ({destinataire})
+3. Lieu et date : {adresse_etablissement}, le {date_fr}
+4. Objet : {type_courrier}
+5. Formule d'appel : Monsieur / Madame (selon le destinataire)
+6. Corps du courrier structuré en paragraphes clairs
+7. Formule de politesse finale formelle et complète
+8. Signature : {nom} {prenom}, numéro d'écrou {ecrou}
+
+INFORMATIONS DU DÉTENU :
+{detenu_info}
+
+TYPE DE COURRIER : {type_courrier}
+TON : {ton}
+MOTIF ET CONTEXTE : {motif_str}
+
+{exemples_section}
+
+COURRIER :"""
+
     return prompt
 
-def generate_courrier_text(detenu: Optional[dict], detenu_id: Optional[str], type_courrier: str, motif: Optional[str], ton: str) -> Tuple[str, dict]:
+    return prompt
+
+
+def _get_destinataire(type_courrier: str) -> str:
+    type_lower = type_courrier.lower()
+    if "greffe" in type_lower:
+        return "Monsieur/Madame le/la Chef(fe) du Greffe"
+    elif "direction" in type_lower:
+        return "Monsieur/Madame le/la Directeur/Directrice de l'établissement pénitentiaire"
+    elif "parloir" in type_lower:
+        return "Monsieur/Madame le/la Chef(fe) du service des Parloirs"
+    elif "médical" in type_lower or "ucsa" in type_lower:
+        return "Monsieur/Madame le/la Médecin-Chef de l'UCSA"
+    elif "spip" in type_lower:
+        return "Monsieur/Madame le/la Directeur/Directrice du SPIP"
+    elif "juge" in type_lower or "jap" in type_lower or "application" in type_lower:
+        return "Monsieur/Madame le/la Juge de l'Application des Peines"
+    elif "comptabilité" in type_lower or "pécule" in type_lower:
+        return "Monsieur/Madame le/la Responsable du service Comptabilité"
+    elif "transfert" in type_lower:
+        return "Monsieur/Madame le/la Directeur/Directrice Interrégional(e) des Services Pénitentiaires"
+    elif "discipline" in type_lower:
+        return "Monsieur/Madame le/la Président(e) de la Commission de Discipline"
+    elif "uvf" in type_lower or "familiale" in type_lower:
+        return "Monsieur/Madame le/la Responsable des Unités de Vie Familiale"
+    elif "préfecture" in type_lower:
+        return "Monsieur/Madame le/la Préfet(e)"
+    else:
+        return "Monsieur/Madame le/la Directeur/Directrice de l'établissement"
+
+
+def generate_courrier_text(
+    detenu: Optional[dict],
+    detenu_id: Optional[str],
+    type_courrier: str,
+    motif: Optional[str],
+    ton: str
+) -> Tuple[str, dict]:
     """
-    Retourne (texte, metadata)
+    Génère un courrier via Ollama/Mistral.
+    Fallback sur texte stub si Ollama non disponible.
     """
-    # Si pas de modèle disponible, fallback demo text
-    if _generator is None:
-        nom = detenu.get("nom") if detenu else "NOM"
-        num = detenu.get("numero_ecrou") if detenu else "NUM"
-        text = (
-            f"Objet : {type_courrier}\n\n"
-            f"Je soussigné(e) {nom}, numéro d'écrou {num}, sollicite par la présente {motif or 'votre attention'}.\n\n"
-            "Texte généré en mode démo. Remplacer par un modèle local pour production."
+
+    if not OLLAMA_AVAILABLE:
+        return _fallback(detenu, type_courrier, motif), {"model_version": "stub", "used_examples": 0}
+
+    # Vérifier qu'Ollama tourne
+    try:
+        ollama.list()
+    except Exception:
+        return _fallback(detenu, type_courrier, motif), {"model_version": "stub (ollama non démarré)", "used_examples": 0}
+
+    prompt = _assemble_prompt(
+        detenu=detenu,
+        detenu_id=detenu_id,
+        type_courrier=type_courrier,
+        motif=motif,
+        ton=ton
+    )
+
+    try:
+        response = ollama.chat(
+            model=OLLAMA_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            options={
+                "temperature": 0.4,
+                "top_p": 0.9,
+                "num_predict": 1024,
+            }
         )
-        return text, {"model_version": "stub", "used_examples": 0}
+        generated = response["message"]["content"].strip()
 
-    # assembler prompt en incluant contexte RAG
-    prompt = _assemble_prompt(detenu=detenu, detenu_id=detenu_id, type_courrier=type_courrier, motif=motif, ton=ton)
+        # Compter les exemples RAG utilisés
+        used_examples = 0
+        try:
+            used_examples = len(rag.retrieve_examples_for_detenu(
+                detenu_id=str(detenu_id) if detenu_id else "",
+                query=motif or "",
+                top_k=3
+            ))
+        except Exception:
+            pass
 
-    # génération via pipeline
-    out = _generator(prompt, max_length=512, do_sample=False)
-    generated = out[0].get("generated_text", "")
-    # si le générateur renvoie le prompt + texte, on peut nettoyer le prompt si nécessaire
-    if generated.startswith(prompt):
-        generated = generated[len(prompt):].strip()
+        return generated, {"model_version": f"ollama/{OLLAMA_MODEL}", "used_examples": used_examples}
 
-    return generated, {"model_version": "local", "used_examples": len(rag.retrieve_examples_for_detenu(detenu_id=str(detenu_id), query=motif or "", top_k=3)) if detenu_id else 0}
+    except Exception as e:
+        return _fallback(detenu, type_courrier, motif), {"model_version": f"stub (erreur: {str(e)})", "used_examples": 0}
 
-# charger modèle au démarrage si possible
+
+def _fallback(detenu, type_courrier, motif):
+    nom = detenu.get("nom", "NOM") if detenu else "NOM"
+    prenom = detenu.get("prenom", "PRÉNOM") if detenu else "PRÉNOM"
+    num = detenu.get("numero_ecrou", "XXXXX") if detenu else "XXXXX"
+    return (
+        f"Objet : {type_courrier}\n\n"
+        f"Je soussigné(e) {nom} {prenom}, numéro d'écrou {num}, "
+        f"sollicite par la présente votre attention concernant : {motif or 'le motif non précisé'}.\n\n"
+        "⚠️ Mode démo — Installez Ollama et Mistral pour une génération IA complète.\n"
+        "Voir instructions dans la conversation."
+    )
+
+
+# Pas de chargement au démarrage nécessaire avec Ollama
+def load_model():
+    pass
+
 load_model()

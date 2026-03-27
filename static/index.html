@@ -1,0 +1,1487 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CourrierIA — Rédaction Administrative</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --navy:   #0d1b2a;
+    --navy2:  #162235;
+    --navy3:  #1e3050;
+    --amber:  #c8893a;
+    --amber2: #e8a84e;
+    --cream:  #f5f0e8;
+    --cream2: #ede6d8;
+    --text:   #e8e2d8;
+    --muted:  #8a9bb5;
+    --danger: #c0392b;
+    --success:#27ae60;
+    --border: rgba(200,137,58,.22);
+    --shadow: 0 8px 40px rgba(0,0,0,.45);
+    --radius: 10px;
+    --font-display: 'Cormorant Garamond', Georgia, serif;
+    --font-body:    'DM Sans', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--navy);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 15px;
+    font-weight: 300;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── NOISE OVERLAY ─── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+    opacity: .028;
+    pointer-events: none;
+  }
+
+  /* ─── SCREENS ─── */
+  .screen { position: relative; z-index: 1; display: none; min-height: 100vh; }
+  .screen.active { display: flex; }
+
+  /* ─── AUTH SCREEN ─── */
+  #screen-auth {
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(ellipse 80% 70% at 50% 0%, #1e3050 0%, var(--navy) 70%);
+  }
+  .auth-card {
+    width: 420px;
+    background: rgba(22,34,53,.85);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 48px 44px;
+    backdrop-filter: blur(16px);
+    box-shadow: var(--shadow), 0 0 0 1px rgba(200,137,58,.06) inset;
+    animation: fadeUp .6s ease both;
+  }
+  .auth-logo {
+    font-family: var(--font-display);
+    font-size: 2.6rem;
+    font-weight: 700;
+    color: var(--amber2);
+    letter-spacing: .02em;
+    margin-bottom: 4px;
+  }
+  .auth-sub {
+    color: var(--muted);
+    font-size: .85rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    margin-bottom: 36px;
+  }
+  .tab-row {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 28px;
+  }
+  .tab-btn {
+    flex: 1; background: none; border: none; color: var(--muted);
+    font-family: var(--font-body); font-size: .85rem; letter-spacing: .1em;
+    text-transform: uppercase; padding: 10px 0; cursor: pointer;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    transition: color .2s, border-color .2s;
+  }
+  .tab-btn.active { color: var(--amber2); border-color: var(--amber2); }
+
+  /* ─── FORM ELEMENTS ─── */
+  .field { margin-bottom: 18px; }
+  .field label {
+    display: block; font-size: .78rem; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 6px;
+  }
+  input, select, textarea {
+    width: 100%; background: rgba(255,255,255,.05);
+    border: 1px solid rgba(200,137,58,.18);
+    border-radius: var(--radius); color: var(--text);
+    font-family: var(--font-body); font-size: .95rem;
+    padding: 10px 14px; outline: none;
+    transition: border-color .2s, background .2s;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--amber); background: rgba(200,137,58,.07);
+  }
+  select option { background: var(--navy2); color: var(--text); }
+  textarea { resize: vertical; min-height: 80px; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 11px 22px; border-radius: var(--radius);
+    border: none; cursor: pointer; font-family: var(--font-body);
+    font-size: .88rem; font-weight: 500; letter-spacing: .04em;
+    transition: all .2s; text-decoration: none;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--amber) 0%, var(--amber2) 100%);
+    color: var(--navy); width: 100%; justify-content: center;
+    margin-top: 6px; font-weight: 600;
+    box-shadow: 0 4px 20px rgba(200,137,58,.3);
+  }
+  .btn-primary:hover { filter: brightness(1.08); transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-ghost {
+    background: rgba(255,255,255,.06); color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,.1); }
+  .btn-danger { background: rgba(192,57,43,.2); color: #e74c3c; border: 1px solid rgba(192,57,43,.3); }
+  .btn-danger:hover { background: rgba(192,57,43,.35); }
+  .btn-sm { padding: 7px 14px; font-size: .82rem; }
+
+  .err-msg {
+    background: rgba(192,57,43,.15); border: 1px solid rgba(192,57,43,.3);
+    border-radius: 8px; color: #e74c3c; font-size: .84rem;
+    padding: 10px 14px; margin-top: 14px; display: none;
+  }
+  .err-msg.show { display: block; }
+
+  /* ─── APP SHELL ─── */
+  #screen-app {
+    flex-direction: column;
+  }
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px; height: 62px;
+    background: rgba(13,27,42,.92);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .topbar-logo {
+    font-family: var(--font-display);
+    font-size: 1.5rem; font-weight: 700; color: var(--amber2);
+    letter-spacing: .02em;
+  }
+  .topbar-logo span { font-weight: 400; color: var(--muted); font-size: 1rem; }
+  .topbar-right { display: flex; align-items: center; gap: 14px; }
+  .user-chip {
+    background: rgba(200,137,58,.1); border: 1px solid var(--border);
+    border-radius: 20px; padding: 5px 14px;
+    font-size: .82rem; color: var(--amber2);
+  }
+
+  .app-body {
+    flex: 1; display: flex; overflow: hidden;
+  }
+
+  /* ─── SIDEBAR ─── */
+  .sidebar {
+    width: 260px; min-width: 260px;
+    background: rgba(22,34,53,.6);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    padding: 24px 0;
+    overflow-y: auto;
+  }
+  .sidebar-section-title {
+    font-size: .72rem; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--muted); padding: 0 20px 10px; margin-top: 16px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 20px; cursor: pointer;
+    color: var(--muted); font-size: .9rem;
+    border-left: 3px solid transparent;
+    transition: all .15s;
+  }
+  .nav-item:hover { color: var(--text); background: rgba(255,255,255,.04); }
+  .nav-item.active { color: var(--amber2); border-color: var(--amber2); background: rgba(200,137,58,.07); }
+  .nav-icon { width: 18px; text-align: center; }
+
+  /* ─── MAIN CONTENT ─── */
+  .main {
+    flex: 1; overflow-y: auto;
+    padding: 36px 40px;
+  }
+
+  .page { display: none; }
+  .page.active { display: block; animation: fadeUp .3s ease both; }
+
+  .page-header {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    margin-bottom: 32px; padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .page-title {
+    font-family: var(--font-display);
+    font-size: 2rem; font-weight: 600; color: var(--cream);
+    line-height: 1;
+  }
+  .page-title small {
+    display: block; font-family: var(--font-body);
+    font-size: .78rem; color: var(--muted);
+    letter-spacing: .1em; text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  /* ─── CARDS ─── */
+  .card {
+    background: rgba(22,34,53,.7);
+    border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px;
+    margin-bottom: 16px;
+  }
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap: 16px; }
+
+  .detenu-card {
+    background: rgba(22,34,53,.7);
+    border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px 22px;
+    cursor: pointer; transition: all .2s;
+    position: relative; overflow: hidden;
+  }
+  .detenu-card::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px; background: var(--amber);
+    transform: scaleY(0); transition: transform .2s;
+    transform-origin: bottom;
+  }
+  .detenu-card:hover { border-color: rgba(200,137,58,.4); transform: translateY(-2px); }
+  .detenu-card:hover::before { transform: scaleY(1); }
+  .detenu-name { font-family: var(--font-display); font-size: 1.2rem; color: var(--cream); margin-bottom: 4px; }
+  .detenu-meta { font-size: .82rem; color: var(--muted); }
+  .detenu-badge {
+    display: inline-block; background: rgba(200,137,58,.12);
+    border: 1px solid rgba(200,137,58,.25);
+    border-radius: 4px; padding: 2px 8px;
+    font-size: .73rem; color: var(--amber2); margin-top: 10px;
+    letter-spacing: .06em;
+  }
+  .card-actions { display: flex; gap: 8px; margin-top: 14px; }
+
+  /* ─── FORM CARD ─── */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-grid .full { grid-column: 1/-1; }
+
+  /* ─── COURRIER OUTPUT ─── */
+  .courrier-output {
+    background: rgba(245,240,232,.04);
+    border: 1px solid rgba(200,137,58,.2);
+    border-radius: 12px; padding: 32px 36px;
+    font-family: var(--font-display);
+    font-size: 1.05rem; line-height: 1.8;
+    color: var(--cream); white-space: pre-wrap;
+    position: relative;
+  }
+  .courrier-output::before {
+    content: ''; position: absolute;
+    inset: -1px; border-radius: 12px;
+    background: linear-gradient(135deg, rgba(200,137,58,.15) 0%, transparent 50%);
+    pointer-events: none;
+  }
+  .output-actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+
+  /* ─── STATS ─── */
+  .stats-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 28px; }
+  .stat-card {
+    background: rgba(22,34,53,.7);
+    border: 1px solid var(--border);
+    border-radius: 12px; padding: 22px 24px;
+  }
+  .stat-value { font-family: var(--font-display); font-size: 2.4rem; font-weight: 600; color: var(--amber2); line-height: 1; }
+  .stat-label { font-size: .78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-top: 6px; }
+
+  /* ─── LOADING ─── */
+  .spinner {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 2px solid rgba(200,137,58,.2);
+    border-top-color: var(--amber);
+    animation: spin .7s linear infinite;
+    margin: 0 auto;
+  }
+  .loading-overlay {
+    display: none; position: fixed; inset: 0; z-index: 200;
+    background: rgba(13,27,42,.7); backdrop-filter: blur(4px);
+    align-items: center; justify-content: center; flex-direction: column; gap: 16px;
+  }
+  .loading-overlay.show { display: flex; }
+  .loading-text { color: var(--amber2); font-size: .9rem; letter-spacing: .1em; text-transform: uppercase; }
+
+  /* ─── TOAST ─── */
+  .toast {
+    position: fixed; bottom: 28px; right: 28px; z-index: 300;
+    background: rgba(22,34,53,.95); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 20px;
+    color: var(--text); font-size: .88rem;
+    box-shadow: var(--shadow); transform: translateY(80px); opacity: 0;
+    transition: all .3s; pointer-events: none; max-width: 320px;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { border-color: rgba(39,174,96,.4); }
+  .toast.error   { border-color: rgba(192,57,43,.4); color: #e74c3c; }
+
+  /* ─── MODAL ─── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 150;
+    background: rgba(0,0,0,.6); backdrop-filter: blur(6px);
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--navy2); border: 1px solid var(--border);
+    border-radius: 16px; padding: 36px; width: 560px; max-width: 95vw;
+    max-height: 85vh; overflow-y: auto;
+    animation: fadeUp .25s ease;
+  }
+  .modal-title { font-family: var(--font-display); font-size: 1.5rem; color: var(--cream); margin-bottom: 24px; }
+
+  /* ─── EMPTY STATE ─── */
+  .empty-state {
+    text-align: center; padding: 60px 20px;
+    color: var(--muted);
+  }
+  .empty-state .icon { font-size: 3rem; margin-bottom: 16px; opacity: .4; }
+  .empty-state p { margin-bottom: 20px; }
+
+  /* ─── DIVIDER ─── */
+  .divider { height: 1px; background: var(--border); margin: 24px 0; }
+
+  /* ─── ANIMATIONS ─── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* ─── SCROLLBAR ─── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(200,137,58,.25); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(200,137,58,.45); }
+
+  /* ─── CHECKBOX INLINE ─── */
+  .check-row { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+  .check-row input[type=checkbox] { width: auto; }
+  .check-row label { font-size: .88rem; color: var(--text); text-transform: none; letter-spacing: 0; }
+
+  .tag { display: inline-block; background: rgba(200,137,58,.12); border: 1px solid rgba(200,137,58,.25); border-radius: 4px; padding: 2px 8px; font-size: .75rem; color: var(--amber2); letter-spacing: .04em; }
+
+  /* ─── CAT BUTTONS ─── */
+  .cat-btn {
+    background: rgba(255,255,255,.05); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--muted);
+    font-family: var(--font-body); font-size: .85rem;
+    padding: 9px 16px; cursor: pointer;
+    transition: all .2s;
+  }
+  .cat-btn:hover { background: rgba(200,137,58,.08); color: var(--text); border-color: rgba(200,137,58,.3); }
+  .cat-btn.active { background: rgba(200,137,58,.15); color: var(--amber2); border-color: var(--amber); font-weight: 500; }
+
+  .section-divider {
+    display: flex; align-items: center; gap: 12px;
+    color: var(--muted); font-size: .75rem; text-transform: uppercase;
+    letter-spacing: .12em; margin: 20px 0 16px;
+  }
+  .section-divider::before, .section-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════ AUTH SCREEN ═══════════════════════ -->
+<div id="screen-auth" class="screen active">
+  <div class="auth-card">
+    <div class="auth-logo">CourrierIA</div>
+    <div class="auth-sub">Rédaction administrative pénitentiaire</div>
+
+    <div class="tab-row">
+      <button class="tab-btn active" onclick="switchTab('login')">Connexion</button>
+      <button class="tab-btn" onclick="switchTab('register')">Inscription</button>
+    </div>
+
+    <!-- LOGIN -->
+    <div id="form-login">
+      <div class="field">
+        <label>Adresse e-mail</label>
+        <input type="email" id="login-email" placeholder="vous@exemple.fr" autocomplete="email"/>
+      </div>
+      <div class="field">
+        <label>Mot de passe</label>
+        <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"/>
+      </div>
+      <button class="btn btn-primary" onclick="doLogin()">Se connecter</button>
+      <div id="login-err" class="err-msg"></div>
+    </div>
+
+    <!-- REGISTER -->
+    <div id="form-register" style="display:none">
+      <div class="form-grid">
+        <div class="field">
+          <label>Nom complet</label>
+          <input type="text" id="reg-nom" placeholder="Dupont Marie"/>
+        </div>
+        <div class="field">
+          <label>Email</label>
+          <input type="email" id="reg-email" placeholder="vous@exemple.fr"/>
+        </div>
+        <div class="field full">
+          <label>Mot de passe</label>
+          <input type="password" id="reg-password" placeholder="••••••••"/>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="doRegister()">Créer le compte</button>
+      <div id="reg-err" class="err-msg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ APP SCREEN ═══════════════════════ -->
+<div id="screen-app" class="screen">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-logo">CourrierIA <span>/ Tableau de bord</span></div>
+    <div class="topbar-right">
+      <div class="user-chip" id="user-chip">Utilisateur</div>
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()">Déconnexion</button>
+    </div>
+  </div>
+
+  <div class="app-body">
+    <!-- SIDEBAR -->
+    <nav class="sidebar">
+      <div class="sidebar-section-title">Navigation</div>
+      <div class="nav-item active" onclick="showPage('dashboard')">
+        <span class="nav-icon">⬛</span> Tableau de bord
+      </div>
+      <div class="nav-item" onclick="showPage('detenus')">
+        <span class="nav-icon">👤</span> Détenus
+      </div>
+      <div class="nav-item" onclick="showPage('generer')">
+        <span class="nav-icon">✉️</span> Générer un courrier
+      </div>
+      <div class="nav-item" onclick="showPage('exemples')">
+        <span class="nav-icon">📂</span> Courriers exemples
+      </div>
+      <div class="nav-item" onclick="showPage('historique')">
+        <span class="nav-icon">🗂️</span> Historique courriers
+      </div>
+    </nav>
+
+    <!-- MAIN -->
+    <div class="main">
+
+      <!-- ─── PAGE DASHBOARD ─── -->
+      <div id="page-dashboard" class="page active">
+        <div class="page-header">
+          <div>
+            <div class="page-title"><small>Vue d'ensemble</small>Tableau de bord</div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="showPage('generer')">✉️ Nouveau courrier</button>
+        </div>
+
+        <div class="stats-row">
+          <div class="stat-card">
+            <div class="stat-value" id="stat-detenus">—</div>
+            <div class="stat-label">Détenus enregistrés</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-courriers">—</div>
+            <div class="stat-label">Courriers générés</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">IA</div>
+            <div class="stat-label">Mode actif</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="font-family:var(--font-display);font-size:1.3rem;color:var(--cream);margin-bottom:8px;">Démarrage rapide</div>
+          <p style="color:var(--muted);font-size:.9rem;line-height:1.6;margin-bottom:20px;">
+            CourrierIA génère des courriers administratifs adaptés à chaque détenu grâce à l'IA et au RAG contextuel. Commencez par enregistrer un détenu, puis générez un courrier en quelques secondes.
+          </p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="btn btn-ghost btn-sm" onclick="showPage('detenus')">👤 Gérer les détenus</button>
+            <button class="btn btn-primary btn-sm" onclick="showPage('generer')">✉️ Générer maintenant</button>
+          </div>
+        </div>
+
+        <div style="font-family:var(--font-display);font-size:1.2rem;color:var(--cream);margin-bottom:14px;">Détenus récents</div>
+        <div id="dashboard-detenus" class="card-grid"></div>
+      </div>
+
+      <!-- ─── PAGE DÉTENUS ─── -->
+      <div id="page-detenus" class="page">
+        <div class="page-header">
+          <div class="page-title"><small>Répertoire</small>Détenus</div>
+          <button class="btn btn-primary btn-sm" onclick="openDetenuModal()">+ Ajouter</button>
+        </div>
+        <div id="detenus-list" class="card-grid">
+          <div class="empty-state">
+            <div class="icon">👤</div>
+            <p>Aucun détenu enregistré</p>
+            <button class="btn btn-primary btn-sm" onclick="openDetenuModal()">Ajouter le premier</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── PAGE GÉNÉRER ─── -->
+      <div id="page-generer" class="page">
+        <div class="page-header">
+          <div class="page-title"><small>Assistant IA</small>Générer un courrier</div>
+        </div>
+
+        <div class="card">
+          <div style="font-family:var(--font-display);font-size:1.15rem;color:var(--cream);margin-bottom:18px;">Informations du détenu</div>
+
+          <!-- Sélection type -->
+          <div class="field">
+            <label>Source du détenu</label>
+            <select id="source-detenu" onchange="toggleDetenuSource()">
+              <option value="enregistre">Détenu enregistré</option>
+              <option value="temp">Nouveau détenu (temporaire)</option>
+            </select>
+          </div>
+
+          <!-- Détenu enregistré -->
+          <div id="source-enregistre">
+            <div class="field">
+              <label>Sélectionner un détenu</label>
+              <select id="select-detenu">
+                <option value="">— Choisir —</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Détenu temporaire -->
+          <div id="source-temp" style="display:none">
+            <div class="form-grid">
+              <div class="field">
+                <label>Nom</label>
+                <input type="text" id="temp-nom" placeholder="MARTIN"/>
+              </div>
+              <div class="field">
+                <label>Prénom</label>
+                <input type="text" id="temp-prenom" placeholder="Jean"/>
+              </div>
+              <div class="field">
+                <label>N° d'écrou</label>
+                <input type="text" id="temp-ecrou" placeholder="123456"/>
+              </div>
+              <div class="field">
+                <label>Cellule</label>
+                <input type="text" id="temp-cellule" placeholder="A-12"/>
+              </div>
+              <div class="field">
+                <label>Bâtiment</label>
+                <input type="text" id="temp-batiment" placeholder="Bâtiment B"/>
+              </div>
+              <div class="field">
+                <label>Établissement</label>
+                <input type="text" id="temp-etablissement" placeholder="Maison d'arrêt de..."/>
+              </div>
+              <div class="field">
+                <label>Date de naissance</label>
+                <input type="date" id="temp-naissance"/>
+              </div>
+            </div>
+            <div class="check-row">
+              <input type="checkbox" id="save-detenu"/>
+              <label for="save-detenu">Enregistrer ce détenu pour les prochaines fois</label>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div style="font-family:var(--font-display);font-size:1.15rem;color:var(--cream);margin-bottom:18px;">Paramètres du courrier</div>
+          <div class="form-grid">
+
+            <!-- CATÉGORIE -->
+            <div class="field full">
+              <label>Catégorie du courrier</label>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;" id="cat-buttons">
+                <button type="button" class="cat-btn active" data-cat="penitentiaire" onclick="selectCat(this)">🏛️ Pénitentiaire</button>
+                <button type="button" class="cat-btn" data-cat="jap" onclick="selectCat(this)">⚖️ Juge d'application des peines</button>
+                <button type="button" class="cat-btn" data-cat="administratif" onclick="selectCat(this)">📋 Administratif</button>
+                <button type="button" class="cat-btn" data-cat="personnel" onclick="selectCat(this)">👤 Personnel / Familial</button>
+              </div>
+            </div>
+
+            <!-- SOUS-MENU PÉNITENTIAIRE : service -->
+            <div class="field" id="zone-service" style="">
+              <label>Service destinataire</label>
+              <select id="service-penitentiaire" onchange="updateTypeCourrier()">
+                <option value="greffe">Greffe</option>
+                <option value="direction">Direction</option>
+                <option value="parloir">Parloir</option>
+                <option value="comptabilité">Comptabilité / Pécule</option>
+                <option value="UCSA / médical">UCSA / Service médical</option>
+                <option value="SPIP">SPIP (Service pénitentiaire d'insertion)</option>
+                <option value="unité de vie familiale">Unité de vie familiale (UVF)</option>
+                <option value="bibliothèque">Bibliothèque</option>
+                <option value="formation / travail">Formation / Travail</option>
+                <option value="sécurité">Service sécurité</option>
+                <option value="cuisine">Cuisine / Cantine</option>
+                <option value="promenade">Promenade / Activités</option>
+                <option value="discipline">Commission de discipline</option>
+              </select>
+            </div>
+
+            <!-- TYPE selon catégorie -->
+            <div class="field" id="zone-type">
+              <label>Type de courrier</label>
+              <select id="type-courrier">
+                <option value="demande">Demande</option>
+                <option value="réclamation">Réclamation</option>
+                <option value="signalement">Signalement</option>
+                <option value="plainte">Plainte</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label>Ton du courrier</label>
+              <select id="ton-courrier">
+                <option value="neutre">Neutre / Formel</option>
+                <option value="respectueux">Respectueux</option>
+                <option value="urgent">Urgent</option>
+                <option value="conciliant">Conciliant</option>
+              </select>
+            </div>
+
+            <div class="field full">
+              <label>Motif / Précisions</label>
+              <textarea id="motif" rows="3" placeholder="Décrivez le contexte et les raisons de ce courrier..."></textarea>
+            </div>
+          </div>
+
+          <button class="btn btn-primary" style="width:auto;margin-top:8px;" onclick="genererCourrier()">
+            ✉️ Générer le courrier
+          </button>
+        </div>
+
+        <!-- Résultat -->
+        <div id="result-zone" style="display:none">
+          <div class="section-divider">Courrier généré — modifiable avant impression</div>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <div style="font-size:.82rem;color:var(--muted);">✏️ Cliquez dans le texte pour le modifier directement</div>
+            <button class="btn btn-ghost btn-sm" onclick="resetEdition()">↩️ Rétablir original</button>
+          </div>
+
+          <textarea id="courrier-text"
+            style="width:100%;min-height:420px;background:rgba(245,240,232,.04);
+            border:1px solid rgba(200,137,58,.25);border-radius:12px;
+            padding:32px 36px;font-family:'Cormorant Garamond',Georgia,serif;
+            font-size:1.05rem;line-height:1.8;color:var(--cream);
+            resize:vertical;outline:none;transition:border-color .2s;"
+            onfocus="this.style.borderColor='var(--amber)'"
+            onblur="this.style.borderColor='rgba(200,137,58,.25)'"
+            spellcheck="true"></textarea>
+
+          <div class="output-actions">
+            <button class="btn btn-primary btn-sm" onclick="imprimerCourrier()">🖨️ Imprimer</button>
+            <button class="btn btn-ghost btn-sm" onclick="exporterWord()">📄 Ouvrir dans Word</button>
+            <button class="btn btn-ghost btn-sm" onclick="copierCourrier()">📋 Copier</button>
+            <button class="btn btn-ghost btn-sm" onclick="regenererCourrier()">🔄 Regénérer</button>
+            <button class="btn btn-ghost btn-sm" onclick="nouveauCourrier()">✚ Nouveau</button>
+          </div>
+          <div id="meta-info" style="margin-top:14px;font-size:.8rem;color:var(--muted);"></div>
+        </div>
+      </div>
+
+      <!-- ─── PAGE EXEMPLES ─── -->
+      <div id="page-exemples" class="page">
+        <div class="page-header">
+          <div class="page-title"><small>Base de connaissances RAG</small>Courriers exemples</div>
+        </div>
+
+        <div class="card" style="margin-bottom:24px;">
+          <div style="font-family:var(--font-display);font-size:1.15rem;color:var(--cream);margin-bottom:8px;">Comment ça fonctionne ?</div>
+          <p style="color:var(--muted);font-size:.9rem;line-height:1.6;">
+            Les courriers que vous importez ici servent de modèles à l'IA. Plus vous en importez, plus les courriers générés seront adaptés au style et au contexte de chaque détenu. L'IA s'en inspire sans les copier mot pour mot.
+          </p>
+        </div>
+
+        <!-- IMPORT EN MASSE -->
+        <div class="card" style="margin-bottom:20px;border-color:rgba(200,137,58,.4);">
+          <div style="font-family:var(--font-display);font-size:1.15rem;color:var(--amber2);margin-bottom:8px;">📁 Import en masse — dossier complet</div>
+          <p style="color:var(--muted);font-size:.88rem;line-height:1.6;margin-bottom:16px;">
+            Sélectionnez tous vos fichiers Word d'un coup (Ctrl+A dans le sélecteur). Le type de courrier est détecté automatiquement depuis le nom du fichier.
+          </p>
+          <div class="field">
+            <label>Sélectionner tous les fichiers .docx</label>
+            <input type="file" id="masse-fichiers" accept=".docx" multiple style="padding:8px 14px;cursor:pointer;"/>
+          </div>
+          <div id="masse-preview" style="display:none;margin-top:12px;">
+            <div style="font-size:.82rem;color:var(--muted);margin-bottom:8px;" id="masse-count"></div>
+            <div id="masse-liste" style="max-height:200px;overflow-y:auto;font-size:.82rem;"></div>
+          </div>
+          <div id="masse-progress" style="display:none;margin-top:14px;">
+            <div style="background:rgba(255,255,255,.05);border-radius:20px;height:8px;overflow:hidden;">
+              <div id="masse-bar" style="background:var(--amber);height:100%;width:0%;transition:width .3s;border-radius:20px;"></div>
+            </div>
+            <div id="masse-status" style="font-size:.82rem;color:var(--muted);margin-top:8px;"></div>
+          </div>
+          <div id="masse-result" style="display:none;margin-top:14px;padding:12px;border-radius:8px;background:rgba(39,174,96,.1);border:1px solid rgba(39,174,96,.3);font-size:.88rem;"></div>
+          <button class="btn btn-primary" style="width:auto;margin-top:14px;" onclick="importerMasse()">
+            🚀 Importer tout le dossier
+          </button>
+        </div>
+
+        <!-- FORMULAIRE D'IMPORT -->
+        <div class="card">
+          <div style="font-family:var(--font-display);font-size:1.15rem;color:var(--cream);margin-bottom:18px;">📂 Importer un courrier Word (.docx)</div>
+          <div class="form-grid">
+            <div class="field">
+              <label>Détenu concerné *</label>
+              <select id="ex-detenu-id">
+                <option value="">— Choisir —</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Type de courrier *</label>
+              <select id="ex-type">
+                <option value="demande au greffe">Demande au greffe</option>
+                <option value="demande à la direction">Demande à la direction</option>
+                <option value="requête JAP">Requête JAP</option>
+                <option value="signalement médical">Signalement médical</option>
+                <option value="demande de parloir">Demande de parloir</option>
+                <option value="recours gracieux">Recours gracieux</option>
+                <option value="demande de transfert">Demande de transfert</option>
+                <option value="autre">Autre</option>
+              </select>
+            </div>
+            <div class="field full">
+              <label>Fichier Word (.docx) *</label>
+              <input type="file" id="ex-fichier" accept=".docx" style="padding:8px 14px;cursor:pointer;"/>
+            </div>
+          </div>
+          <div id="ex-err" class="err-msg"></div>
+          <button class="btn btn-primary" style="width:auto;margin-top:12px;" onclick="importerExemple()">
+            📤 Importer ce courrier
+          </button>
+        </div>
+
+        <!-- LISTE DES EXEMPLES -->
+        <div style="font-family:var(--font-display);font-size:1.2rem;color:var(--cream);margin:24px 0 14px;">
+          Courriers importés
+        </div>
+        <div id="exemples-list">
+          <div class="empty-state">
+            <div class="icon">📂</div>
+            <p>Aucun courrier exemple importé pour l'instant</p>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- ─── PAGE HISTORIQUE ─── -->
+      <div id="page-historique" class="page">
+        <div class="page-header">
+          <div class="page-title"><small>Tous les courriers générés</small>Historique</div>
+          <button class="btn btn-ghost btn-sm" onclick="loadHistorique()">🔄 Actualiser</button>
+        </div>
+        <div id="historique-list">
+          <div class="empty-state">
+            <div class="icon">🗂️</div>
+            <p>Aucun courrier généré pour l'instant</p>
+          </div>
+        </div>
+      </div>
+
+  </div><!-- /app-body -->
+</div><!-- /screen-app -->
+
+<!-- ═══ MODAL COURRIER ═══ -->
+<div id="modal-courrier" class="modal-overlay">
+  <div class="modal" style="width:700px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
+      <div>
+        <div class="modal-title" id="modal-courrier-title" style="margin-bottom:4px;">Courrier</div>
+        <div id="modal-courrier-meta" style="font-size:.8rem;color:var(--muted);"></div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-courrier')">✕ Fermer</button>
+    </div>
+    <div class="courrier-output" id="modal-courrier-text" style="max-height:60vh;overflow-y:auto;"></div>
+    <div style="display:flex;gap:10px;margin-top:16px;">
+      <button class="btn btn-ghost btn-sm" onclick="copierModalCourrier()">📋 Copier</button>
+      <button class="btn btn-ghost btn-sm" onclick="imprimerModalCourrier()">🖨️ Imprimer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL DÉTENU ═══ -->
+<div id="modal-detenu" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-title" id="modal-detenu-title">Ajouter un détenu</div>
+    <input type="hidden" id="modal-detenu-id"/>
+    <div class="form-grid">
+      <div class="field">
+        <label>Nom *</label>
+        <input type="text" id="m-nom" placeholder="MARTIN"/>
+      </div>
+      <div class="field">
+        <label>Prénom *</label>
+        <input type="text" id="m-prenom" placeholder="Jean"/>
+      </div>
+      <div class="field">
+        <label>N° d'écrou *</label>
+        <input type="text" id="m-ecrou" placeholder="123456"/>
+      </div>
+      <div class="field">
+        <label>Cellule *</label>
+        <input type="text" id="m-cellule" placeholder="A-12"/>
+      </div>
+      <div class="field">
+        <label>Bâtiment *</label>
+        <input type="text" id="m-batiment" placeholder="Bâtiment B"/>
+      </div>
+      <div class="field">
+        <label>Établissement</label>
+        <input type="text" id="m-etablissement" placeholder="Maison d'arrêt de..."/>
+      </div>
+      <div class="field full">
+        <label>Date de naissance</label>
+        <input type="date" id="m-naissance"/>
+      </div>
+    </div>
+    <div id="modal-detenu-err" class="err-msg"></div>
+    <div style="display:flex;gap:10px;margin-top:20px;">
+      <button class="btn btn-primary" onclick="saveDetenu()" style="width:auto;">Enregistrer</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-detenu')">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div id="loading" class="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">Génération en cours...</div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="toast"></div>
+
+<script>
+const API = 'http://127.0.0.1:8000';
+let state = { token: null, userId: null, userNom: '', detenus: [] };
+
+// ── UTILS ──────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const val = id => $(id).value.trim();
+
+function showToast(msg, type='success') {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = `toast show ${type}`;
+  setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+function setLoading(show, text='Chargement...') {
+  $('loading').classList.toggle('show', show);
+  $('loading-text').textContent = text;
+}
+
+function showErr(id, msg) {
+  const el = $(id);
+  el.textContent = msg;
+  el.classList.add('show');
+}
+function hideErr(id) { $(id).classList.remove('show'); }
+
+async function api(path, opts={}) {
+  const headers = { 'Content-Type':'application/json' };
+  if (state.token) headers['Authorization'] = `Bearer ${state.token}`;
+  const res = await fetch(API + path, { ...opts, headers });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || `Erreur ${res.status}`);
+  return data;
+}
+
+// ── AUTH ───────────────────────────────────────────────────────
+function switchTab(tab) {
+  const isLogin = tab === 'login';
+  $('form-login').style.display    = isLogin ? '' : 'none';
+  $('form-register').style.display = isLogin ? 'none' : '';
+  document.querySelectorAll('.tab-btn').forEach((b,i) =>
+    b.classList.toggle('active', isLogin ? i===0 : i===1));
+}
+
+async function doLogin() {
+  hideErr('login-err');
+  const email = val('login-email'), pwd = val('login-password');
+  if (!email || !pwd) return showErr('login-err', 'Remplissez tous les champs.');
+  try {
+    setLoading(true, 'Connexion...');
+    const params = new URLSearchParams({ email, password: pwd });
+    const res = await fetch(`${API}/auth/login?${params}`, { method:'POST' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || 'Identifiants invalides');
+    state.token = data.access_token;
+    // decode user_id from JWT payload
+    try {
+      const payload = JSON.parse(atob(data.access_token.split('.')[1]));
+      state.userId = payload.sub;
+    } catch(e) { state.userId = email; }
+    state.userNom = email;
+    await initApp();
+  } catch(e) { showErr('login-err', e.message); }
+  finally { setLoading(false); }
+}
+
+async function doRegister() {
+  hideErr('reg-err');
+  const nom = val('reg-nom'), email = val('reg-email'), pwd = val('reg-password');
+  if (!nom || !email || !pwd) return showErr('reg-err', 'Remplissez tous les champs.');
+  try {
+    setLoading(true, 'Création du compte...');
+    const id = 'u_' + crypto.randomUUID().replace(/-/g,'').slice(0,12);
+    await api('/auth/register', { method:'POST', body: JSON.stringify({ id, nom, email, password: pwd }) });
+    showToast('Compte créé ! Connectez-vous.');
+    switchTab('login');
+    $('login-email').value = email;
+  } catch(e) { showErr('reg-err', e.message); }
+  finally { setLoading(false); }
+}
+
+function doLogout() {
+  state = { token:null, userId:null, userNom:'', detenus:[] };
+  $('screen-app').classList.remove('active');
+  $('screen-auth').classList.add('active');
+}
+
+// ── APP INIT ───────────────────────────────────────────────────
+async function initApp() {
+  $('screen-auth').classList.remove('active');
+  $('screen-app').classList.add('active');
+  $('user-chip').textContent = state.userNom;
+  await loadDetenus();
+  renderDashboard();
+  showPage('dashboard');
+}
+
+// ── NAVIGATION ─────────────────────────────────────────────────
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  $(`page-${name}`).classList.add('active');
+  const items = document.querySelectorAll('.nav-item');
+  const map = { dashboard:0, detenus:1, generer:2, exemples:3, historique:4 };
+  items[map[name]]?.classList.add('active');
+
+  if (name === 'detenus') renderDetenus();
+  if (name === 'generer') populateDetenuSelect();
+  if (name === 'exemples') { populateExDetenuSelect(); loadExemples(); }
+  if (name === 'historique') loadHistorique();
+}
+
+// ── DÉTENUS ────────────────────────────────────────────────────
+async function loadDetenus() {
+  if (!state.userId) return;
+  try {
+    state.detenus = await api(`/detenus/?user_id=${state.userId}`);
+  } catch(e) { state.detenus = []; }
+}
+
+function renderDetenuCard(d, actions=true) {
+  return `
+    <div class="detenu-card">
+      <div class="detenu-name">${d.nom} ${d.prenom}</div>
+      <div class="detenu-meta">Écrou : ${d.numero_ecrou}</div>
+      <div class="detenu-meta">Cellule ${d.cellule} — ${d.batiment}</div>
+      ${d.etablissement ? `<div class="detenu-meta">${d.etablissement}</div>` : ''}
+      <div class="detenu-badge">Détenu enregistré</div>
+      ${actions ? `
+      <div class="card-actions">
+        <button class="btn btn-ghost btn-sm" onclick="editDetenu('${d.id}')">Modifier</button>
+        <button class="btn btn-ghost btn-sm" onclick="useForcourrier('${d.id}')">✉️ Courrier</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteDetenu('${d.id}')">Supprimer</button>
+      </div>` : ''}
+    </div>`;
+}
+
+function renderDetenus() {
+  const el = $('detenus-list');
+  if (!state.detenus.length) {
+    el.innerHTML = `<div class="empty-state">
+      <div class="icon">👤</div>
+      <p>Aucun détenu enregistré</p>
+      <button class="btn btn-primary btn-sm" onclick="openDetenuModal()">Ajouter le premier</button>
+    </div>`;
+    return;
+  }
+  el.innerHTML = state.detenus.map(d => renderDetenuCard(d)).join('');
+}
+
+function renderDashboard() {
+  $('stat-detenus').textContent = state.detenus.length;
+  $('stat-courriers').textContent = '—';
+  const el = $('dashboard-detenus');
+  if (!state.detenus.length) {
+    el.innerHTML = `<div style="color:var(--muted);font-size:.9rem;">Aucun détenu enregistré pour l'instant.</div>`;
+    return;
+  }
+  el.innerHTML = state.detenus.slice(0,3).map(d => renderDetenuCard(d, false)).join('');
+}
+
+function openDetenuModal(id=null) {
+  ['m-nom','m-prenom','m-ecrou','m-cellule','m-batiment','m-etablissement','m-naissance'].forEach(f => $(f).value = '');
+  $('modal-detenu-id').value = '';
+  $('modal-detenu-title').textContent = 'Ajouter un détenu';
+  hideErr('modal-detenu-err');
+  if (id) {
+    const d = state.detenus.find(x => x.id === id);
+    if (d) {
+      $('modal-detenu-title').textContent = 'Modifier le détenu';
+      $('modal-detenu-id').value = d.id;
+      $('m-nom').value = d.nom; $('m-prenom').value = d.prenom;
+      $('m-ecrou').value = d.numero_ecrou; $('m-cellule').value = d.cellule;
+      $('m-batiment').value = d.batiment;
+      $('m-etablissement').value = d.etablissement || '';
+      $('m-naissance').value = d.date_naissance || '';
+    }
+  }
+  $('modal-detenu').classList.add('show');
+}
+
+function editDetenu(id) { openDetenuModal(id); }
+
+async function saveDetenu() {
+  hideErr('modal-detenu-err');
+  const nom = val('m-nom'), prenom = val('m-prenom'), ecrou = val('m-ecrou'),
+        cellule = val('m-cellule'), batiment = val('m-batiment');
+  if (!nom||!prenom||!ecrou||!cellule||!batiment)
+    return showErr('modal-detenu-err','Remplissez les champs obligatoires (*)');
+  try {
+    setLoading(true,'Enregistrement...');
+    const id = $('modal-detenu-id').value || null;
+    const body = {
+      id, nom, prenom, numero_ecrou: ecrou, cellule, batiment,
+      etablissement: val('m-etablissement') || null,
+      date_naissance: val('m-naissance') || null
+    };
+    await api(`/detenus/?user_id=${state.userId}`, { method:'POST', body: JSON.stringify(body) });
+    await loadDetenus();
+    closeModal('modal-detenu');
+    renderDetenus();
+    renderDashboard();
+    showToast('Détenu enregistré !');
+  } catch(e) { showErr('modal-detenu-err', e.message); }
+  finally { setLoading(false); }
+}
+
+async function deleteDetenu(id) {
+  if (!confirm('Supprimer ce détenu ?')) return;
+  try {
+    setLoading(true,'Suppression...');
+    await api(`/detenus/${id}?user_id=${state.userId}`, { method:'DELETE' });
+    await loadDetenus();
+    renderDetenus();
+    renderDashboard();
+    showToast('Détenu supprimé.', 'success');
+  } catch(e) { showToast(e.message, 'error'); }
+  finally { setLoading(false); }
+}
+
+function useForcourrier(id) {
+  showPage('generer');
+  $('source-detenu').value = 'enregistre';
+  toggleDetenuSource();
+  populateDetenuSelect();
+  setTimeout(() => { $('select-detenu').value = id; }, 100);
+}
+
+function closeModal(id) { $(id).classList.remove('show'); }
+
+// ── GÉNÉRER ────────────────────────────────────────────────────
+function populateDetenuSelect() {
+  const sel = $('select-detenu');
+  sel.innerHTML = '<option value="">— Choisir un détenu —</option>';
+  state.detenus.forEach(d => {
+    const opt = document.createElement('option');
+    opt.value = d.id;
+    opt.textContent = `${d.nom} ${d.prenom} (écrou ${d.numero_ecrou})`;
+    sel.appendChild(opt);
+  });
+}
+
+// ── CATÉGORIES COURRIER ────────────────────────────────────────
+const TYPES = {
+  penitentiaire: ['demande','réclamation','signalement','plainte','recours'],
+  jap: [
+    'requête en aménagement de peine','demande de libération conditionnelle',
+    'demande de semi-liberté','demande de placement sous bracelet électronique',
+    'demande de permission de sortir','recours contre une décision du JAP',
+    'demande de mise en liberté','signalement de situation urgente'
+  ],
+  administratif: [
+    'demande de transfert','recours gracieux','demande de documents administratifs',
+    'demande d\'aide juridictionnelle','signalement CGLPL','courrier préfecture',
+    'demande de protection sociale','autre demande administrative'
+  ],
+  personnel: [
+    'courrier à la famille','demande de parloir','demande de permis de visite',
+    'courrier personnel','demande d\'autorisation de téléphone','autre courrier personnel'
+  ]
+};
+
+let currentCat = 'penitentiaire';
+
+function selectCat(btn) {
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentCat = btn.dataset.cat;
+  // afficher/masquer service pénitentiaire
+  $('zone-service').style.display = currentCat === 'penitentiaire' ? '' : 'none';
+  updateTypeCourrier();
+}
+
+function updateTypeCourrier() {
+  const sel = $('type-courrier');
+  const types = TYPES[currentCat] || TYPES.penitentiaire;
+  sel.innerHTML = types.map(t => `<option value="${t}">${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('');
+}
+
+function getTypeCourrier() {
+  const type = val('type-courrier');
+  if (currentCat === 'penitentiaire') {
+    const service = val('service-penitentiaire');
+    return `${type} au service ${service}`;
+  }
+  return type;
+}
+
+function toggleDetenuSource() {
+  const src = $('source-detenu').value;
+  $('source-enregistre').style.display = src === 'enregistre' ? '' : 'none';
+  $('source-temp').style.display        = src === 'temp' ? '' : 'none';
+}
+
+let _originalCourrier = '';
+
+async function genererCourrier() {
+  $('result-zone').style.display = 'none';
+  const src = $('source-detenu').value;
+  let body = {
+    user_id: state.userId,
+    type_courrier: getTypeCourrier(),
+    motif: val('motif') || null,
+    ton: val('ton-courrier')
+  };
+
+  if (src === 'enregistre') {
+    const did = val('select-detenu');
+    if (!did) return showToast('Sélectionnez un détenu.', 'error');
+    body.detenu_id = did;
+  } else {
+    const nom = val('temp-nom'), prenom = val('temp-prenom'),
+          ecrou = val('temp-ecrou'), cellule = val('temp-cellule'), batiment = val('temp-batiment');
+    if (!nom||!prenom||!ecrou||!cellule||!batiment)
+      return showToast('Remplissez les champs obligatoires du détenu.', 'error');
+    body.detenu_temp = {
+      nom, prenom, numero_ecrou: ecrou, cellule, batiment,
+      etablissement: val('temp-etablissement') || null,
+      date_naissance: val('temp-naissance') || null
+    };
+    body.save_detenu = $('save-detenu').checked;
+  }
+
+  try {
+    setLoading(true, 'Rédaction du courrier par l\'IA...');
+    const res = await api('/courriers/generer', { method:'POST', body: JSON.stringify(body) });
+    _originalCourrier = res.contenu;
+    $('courrier-text').value = res.contenu;
+    $('meta-info').textContent =
+      `Courrier #${res.courrier_id.slice(0,8)} — Modèle : ${res.metadata?.model_version || 'stub'}`
+      + (res.metadata?.used_examples ? ` — ${res.metadata.used_examples} exemple(s) RAG` : '');
+    $('result-zone').style.display = '';
+    $('result-zone').scrollIntoView({ behavior:'smooth', block:'start' });
+    showToast('Courrier généré — modifiez-le si besoin avant d\'imprimer !');
+    if (body.save_detenu || src === 'enregistre') {
+      await loadDetenus(); renderDashboard();
+    }
+  } catch(e) { showToast('Erreur : ' + e.message, 'error'); }
+  finally { setLoading(false); }
+}
+
+async function exporterWord() {
+  const texte = $('courrier-text').value;
+  if (!texte) return showToast('Aucun courrier à exporter.', 'error');
+  try {
+    showToast('Création du fichier Word...');
+    const now = new Date();
+    const date = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    const nomFichier = `Courrier_${date}.docx`;
+
+    const res = await fetch(`${API}/courriers/export-word`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${state.token}`
+      },
+      body: JSON.stringify({ contenu: texte, nom_fichier: nomFichier })
+    });
+
+    if (!res.ok) throw new Error('Erreur serveur');
+
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = nomFichier;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('📄 Fichier Word téléchargé !');
+  } catch(e) {
+    showToast('Erreur Word : ' + e.message, 'error');
+  }
+}
+
+async function regenererCourrier() { await genererCourrier(); }
+
+function resetEdition() {
+  if (!_originalCourrier) return;
+  if (confirm('Rétablir le courrier original généré par l\'IA ?'))
+    $('courrier-text').value = _originalCourrier;
+}
+
+function copierCourrier() {
+  navigator.clipboard.writeText($('courrier-text').value)
+    .then(() => showToast('Courrier copié dans le presse-papiers !'))
+    .catch(() => showToast('Impossible de copier.', 'error'));
+}
+
+function imprimerCourrier() {
+  const texte = $('courrier-text').value;
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>Courrier</title>
+  <style>
+    body{font-family:Georgia,serif;font-size:13pt;line-height:1.9;
+         padding:50px 60px;max-width:750px;margin:auto;color:#111;}
+    pre{white-space:pre-wrap;font-family:inherit;}
+    @page{margin:2cm;}
+  </style></head>
+  <body><pre>${texte.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
+  <script>window.onload=()=>{window.print();}<\/script>
+  </body></html>`);
+  w.document.close();
+}
+
+function nouveauCourrier() {
+  $('result-zone').style.display = 'none';
+  $('motif').value = '';
+  _originalCourrier = '';
+}
+
+// ── IMPORT EN MASSE ────────────────────────────────────────────
+$('masse-fichiers') && document.getElementById('masse-fichiers').addEventListener('change', function() {
+  const files = Array.from(this.files).filter(f => f.name.toLowerCase().endsWith('.docx'));
+  if (!files.length) return;
+  $('masse-count').textContent = `${files.length} fichier(s) sélectionné(s)`;
+  $('masse-liste').innerHTML = files.slice(0, 20).map(f =>
+    `<div style="padding:3px 0;color:var(--text);">📄 ${f.name}</div>`
+  ).join('') + (files.length > 20 ? `<div style="color:var(--muted);">... et ${files.length-20} autres</div>` : '');
+  $('masse-preview').style.display = '';
+});
+
+async function importerMasse() {
+  const input = $('masse-fichiers');
+  const files = Array.from(input.files).filter(f => f.name.toLowerCase().endsWith('.docx'));
+  if (!files.length) return showToast('Sélectionnez au moins un fichier .docx', 'error');
+
+  $('masse-progress').style.display = '';
+  $('masse-result').style.display = 'none';
+
+  // Envoyer par lots de 10 pour éviter les timeouts
+  const BATCH = 10;
+  let importes = 0, erreurs = 0;
+  const details_erreurs = [];
+
+  for (let i = 0; i < files.length; i += BATCH) {
+    const lot = files.slice(i, Math.min(i + BATCH, files.length));
+    const pct = Math.round((i / files.length) * 100);
+    $('masse-bar').style.width = pct + '%';
+    $('masse-status').textContent = `Traitement ${i+1}–${Math.min(i+BATCH, files.length)} sur ${files.length}...`;
+
+    const form = new FormData();
+    form.append('user_id', state.userId);
+    lot.forEach(f => form.append('fichiers', f));
+
+    try {
+      const res = await fetch(`${API}/exemples/importer-masse`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${state.token}` },
+        body: form
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        importes += data.importes || 0;
+        erreurs  += data.erreurs  || 0;
+        if (data.detail_erreurs) details_erreurs.push(...data.detail_erreurs);
+      } else {
+        erreurs += lot.length;
+      }
+    } catch(e) {
+      erreurs += lot.length;
+    }
+  }
+
+  $('masse-bar').style.width = '100%';
+  $('masse-status').textContent = 'Terminé !';
+
+  let html = `<strong style="color:var(--amber2);">✅ ${importes} courrier(s) importé(s) avec succès</strong>`;
+  if (erreurs > 0) html += `<br><span style="color:#e74c3c;">⚠️ ${erreurs} fichier(s) en erreur</span>`;
+  if (details_erreurs.length) {
+    html += '<br><br>Erreurs :<br>' + details_erreurs.slice(0,5).map(e =>
+      `<span style="color:var(--muted);">• ${e.fichier} : ${e.erreur}</span>`).join('<br>');
+  }
+  $('masse-result').innerHTML = html;
+  $('masse-result').style.display = '';
+
+  showToast(`Import terminé : ${importes} courriers indexés !`);
+  await loadExemples();
+}
+
+// ── EXEMPLES ───────────────────────────────────────────────────
+async function loadExemples() {
+  try {
+    const data = await api(`/exemples/exemples?user_id=${state.userId}`);
+    const el = $('exemples-list');
+    if (!data.length) {
+      el.innerHTML = `<div class="empty-state"><div class="icon">📂</div><p>Aucun courrier exemple importé</p></div>`;
+      return;
+    }
+    el.innerHTML = data.map(e => {
+      const det = state.detenus.find(d => d.id === e.detenu_id);
+      const detNom = det ? `${det.nom} ${det.prenom}` : e.detenu_id;
+      const date = e.created_at ? new Date(e.created_at).toLocaleDateString('fr-FR') : '';
+      return `<div class="card" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-family:var(--font-display);font-size:1.05rem;color:var(--cream);">${e.type}</div>
+          <div style="font-size:.82rem;color:var(--muted);margin-top:4px;">👤 ${detNom} — ${date}</div>
+          <div style="font-size:.78rem;color:var(--muted);margin-top:2px;">${e.motif || ''}</div>
+        </div>
+        <span class="tag">✅ Indexé</span>
+      </div>`;
+    }).join('');
+  } catch(e) { console.error(e); }
+}
+
+function populateExDetenuSelect() {
+  const sel = $('ex-detenu-id');
+  sel.innerHTML = '<option value="">— Choisir un détenu —</option>';
+  state.detenus.forEach(d => {
+    const opt = document.createElement('option');
+    opt.value = d.id;
+    opt.textContent = `${d.nom} ${d.prenom} (écrou ${d.numero_ecrou})`;
+    sel.appendChild(opt);
+  });
+}
+
+async function importerExemple() {
+  hideErr('ex-err');
+  const detenu_id = val('ex-detenu-id');
+  const type_courrier = val('ex-type');
+  const fichier = $('ex-fichier').files[0];
+
+  if (!detenu_id) return showErr('ex-err', 'Sélectionnez un détenu.');
+  if (!fichier)   return showErr('ex-err', 'Sélectionnez un fichier .docx.');
+  if (!fichier.name.toLowerCase().endsWith('.docx'))
+    return showErr('ex-err', 'Seuls les fichiers .docx sont acceptés.');
+
+  try {
+    setLoading(true, 'Import et indexation en cours...');
+    const form = new FormData();
+    form.append('user_id', state.userId);
+    form.append('detenu_id', detenu_id);
+    form.append('type_courrier', type_courrier);
+    form.append('fichier', fichier);
+
+    const res = await fetch(`${API}/exemples/importer`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${state.token}` },
+      body: form
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || `Erreur ${res.status}`);
+
+    showToast(`✅ Courrier importé et indexé (${data.nb_caracteres} caractères) !`);
+    $('ex-fichier').value = '';
+    await loadExemples();
+  } catch(e) { showErr('ex-err', e.message); }
+  finally { setLoading(false); }
+}
+
+// ── HISTORIQUE ─────────────────────────────────────────────────
+async function loadHistorique() {
+  try {
+    setLoading(true, 'Chargement de l\'historique...');
+    const data = await api(`/courriers/liste?user_id=${state.userId}`);
+    const el = $('historique-list');
+    if (!data.length) {
+      el.innerHTML = `<div class="empty-state"><div class="icon">🗂️</div><p>Aucun courrier généré pour l'instant</p></div>`;
+      return;
+    }
+    $('stat-courriers').textContent = data.length;
+    el.innerHTML = data.map(c => {
+      const date = c.created_at ? new Date(c.created_at).toLocaleDateString('fr-FR', {day:'2-digit',month:'long',year:'numeric'}) : '';
+      const apercu = c.contenu ? c.contenu.slice(0, 120).replace(/\n/g,' ') + '...' : '';
+      return `<div class="card" style="margin-bottom:12px;cursor:pointer;" onclick="voirCourrier('${c.id}')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div style="flex:1;">
+            <div style="font-family:var(--font-display);font-size:1.1rem;color:var(--cream);margin-bottom:4px;">${c.type}</div>
+            ${c.detenu_nom ? `<div style="font-size:.82rem;color:var(--amber2);margin-bottom:4px;">👤 ${c.detenu_nom}</div>` : ''}
+            ${c.motif ? `<div style="font-size:.82rem;color:var(--muted);margin-bottom:6px;">📝 ${c.motif}</div>` : ''}
+            <div style="font-size:.8rem;color:var(--muted);font-style:italic;">${apercu}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;margin-left:16px;">
+            <div style="font-size:.78rem;color:var(--muted);">${date}</div>
+            <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="event.stopPropagation();voirCourrier('${c.id}')">👁️ Voir</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    // stocker les courriers pour accès rapide
+    window._historique = data;
+  } catch(e) { showToast('Erreur chargement historique : ' + e.message, 'error'); }
+  finally { setLoading(false); }
+}
+
+function voirCourrier(id) {
+  const c = (window._historique || []).find(x => x.id === id);
+  if (!c) return;
+  $('modal-courrier-title').textContent = c.type;
+  $('modal-courrier-meta').textContent =
+    (c.detenu_nom ? `👤 ${c.detenu_nom}  ` : '') +
+    (c.created_at ? '📅 ' + new Date(c.created_at).toLocaleDateString('fr-FR') : '');
+  $('modal-courrier-text').textContent = c.contenu;
+  $('modal-courrier').classList.add('show');
+}
+
+function copierModalCourrier() {
+  navigator.clipboard.writeText($('modal-courrier-text').textContent)
+    .then(() => showToast('Courrier copié !'))
+    .catch(() => showToast('Impossible de copier.', 'error'));
+}
+
+function imprimerModalCourrier() {
+  const w = window.open('','_blank');
+  w.document.write(`<html><head><title>Courrier</title>
+  <style>body{font-family:Georgia,serif;font-size:14pt;line-height:1.8;padding:40px;max-width:700px;margin:auto;}
+  pre{white-space:pre-wrap;font-family:inherit;}</style></head>
+  <body><pre>${$('modal-courrier-text').textContent}</pre></body></html>`);
+  w.document.close(); w.print();
+}
+
+function nouveauCourrier() {
+  $('result-zone').style.display = 'none';
+  $('motif').value = '';
+}
+</script>
+</body>
+</html>

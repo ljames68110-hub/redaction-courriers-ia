@@ -8,15 +8,95 @@ import uuid
 from core.config import settings
 from cryptography.fernet import Fernet
 import base64
-import os
 
 router = APIRouter()
 
-# Simple symmetric encryption for contenu_chiffre (demo). In prod, use robust key management.
 def _get_fernet():
-    # derive key from settings.SQLCIPHER_KEY (demo only)
     key = base64.urlsafe_b64encode(settings.SQLCIPHER_KEY.encode("utf-8").ljust(32, b"\0"))
     return Fernet(key)
+
+@router.get("/liste")
+def liste_courriers(user_id: str):
+    """Liste tous les courriers générés pour un utilisateur (hors exemples)."""
+    db = SessionLocal()
+    courriers = db.query(Courrier).filter(
+        Courrier.user_id == user_id,
+        Courrier.tags != "exemple"
+    ).order_by(Courrier.created_at.desc()).all()
+
+    f = _get_fernet()
+    result = []
+    for c in courriers:
+        # Déchiffrer le contenu
+        try:
+            contenu = f.decrypt(c.contenu_chiffre.encode("utf-8")).decode("utf-8")
+        except Exception:
+            contenu = c.contenu_chiffre  # fallback texte brut
+
+        # Récupérer infos détenu si lié
+        det_nom = ""
+        if c.detenu_id:
+            det = db.query(Detenu).filter(Detenu.id == c.detenu_id).first()
+            if det:
+                det_nom = f"{det.nom} {det.prenom}"
+
+        result.append({
+            "id": c.id,
+            "type": c.type,
+            "motif": c.motif,
+            "contenu": contenu,
+            "detenu_id": c.detenu_id,
+            "detenu_nom": det_nom,
+            "created_at": c.created_at.isoformat() if c.created_at else None
+        })
+    return result
+
+@router.post("/export-word")
+def export_word(data: dict):
+    """Génère un fichier .docx depuis un texte et le retourne en téléchargement."""
+    from fastapi.responses import StreamingResponse
+    from docx import Document
+    from docx.shared import Pt, Cm
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    import io
+
+    texte = data.get("contenu", "")
+    nom_fichier = data.get("nom_fichier", "Courrier.docx")
+
+    doc = Document()
+
+    # Marges standard courrier
+    section = doc.sections[0]
+    section.top_margin    = Cm(2.5)
+    section.bottom_margin = Cm(2.5)
+    section.left_margin   = Cm(3)
+    section.right_margin  = Cm(2)
+
+    # Ajouter chaque ligne comme paragraphe
+    for ligne in texte.split('\n'):
+        p = doc.add_paragraph()
+        run = p.add_run(ligne)
+        run.font.name = 'Times New Roman'
+        run.font.size = Pt(12)
+        # Gras pour la ligne Objet
+        if ligne.strip().lower().startswith('objet'):
+            run.bold = True
+        p.paragraph_format.space_after = Pt(0)
+        p.paragraph_format.space_before = Pt(0)
+        # Ligne vide = espace
+        if not ligne.strip():
+            p.paragraph_format.space_after = Pt(6)
+
+    # Sauvegarder en mémoire
+    buf = io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{nom_fichier}"'}
+    )
 
 @router.post("/generer", response_model=CourrierOut)
 def generer_courrier(payload: CourrierGenerate):
@@ -24,7 +104,6 @@ def generer_courrier(payload: CourrierGenerate):
     detenu_data = None
     detenu_id = payload.detenu_id
 
-    # Chargement du détenu enregistré si fourni
     if payload.detenu_id:
         det = db.query(Detenu).filter(Detenu.id == payload.detenu_id).first()
         if not det:
@@ -40,10 +119,8 @@ def generer_courrier(payload: CourrierGenerate):
             "date_naissance": det.date_naissance
         }
 
-    # Cas detenu temporaire (nouveau)
     elif payload.detenu_temp:
         detenu_data = payload.detenu_temp.dict()
-        # si on demande de sauvegarder le détenu, on le crée et on récupère son id
         if payload.save_detenu:
             new_id = str(uuid.uuid4())
             det = Detenu(
@@ -60,10 +137,8 @@ def generer_courrier(payload: CourrierGenerate):
             db.add(det)
             db.commit()
             detenu_id = new_id
-            # ajouter l'id au dict detenu_data pour que le générateur et RAG puissent l'utiliser
             detenu_data["id"] = new_id
 
-    # Appel du générateur IA (le générateur utilisera RAG si disponible)
     generated_text, metadata = generate_courrier_text(
         detenu=detenu_data,
         detenu_id=detenu_id or (detenu_data.get("id") if detenu_data else None),
@@ -72,7 +147,6 @@ def generer_courrier(payload: CourrierGenerate):
         ton=payload.ton
     )
 
-    # encrypt contenu
     f = _get_fernet()
     token = f.encrypt(generated_text.encode("utf-8"))
 
@@ -89,12 +163,13 @@ def generer_courrier(payload: CourrierGenerate):
     db.add(courrier)
     db.commit()
 
-    # Indexer le courrier dans FAISS pour RAG (snippet)
     try:
-        # on indexe le texte clair (ou un snippet anonymisé si tu préfères)
-        rag.index_courrier(courrier_id=courrier_id, detenu_id=detenu_id or (detenu_data.get("id") if detenu_data else None), text=generated_text)
+        rag.index_courrier(
+            courrier_id=courrier_id,
+            detenu_id=detenu_id or (detenu_data.get("id") if detenu_data else ""),
+            text=generated_text
+        )
     except Exception as e:
-        # ne pas bloquer la réponse si l'indexation échoue ; log minimal
         print("Erreur indexation RAG:", e)
 
     return CourrierOut(courrier_id=courrier_id, contenu=generated_text, metadata=metadata)

@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List
+from pydantic import BaseModel
+from typing import Optional, Any
 
 class UserCreate(BaseModel):
     id: str
@@ -13,6 +13,8 @@ class UserOut(BaseModel):
     email: str
     role: str
     consent_finetune: bool
+
+    model_config = {"from_attributes": True}
 
 class DetenuBase(BaseModel):
     nom: str
@@ -30,6 +32,8 @@ class DetenuCreate(DetenuBase):
 class DetenuOut(DetenuBase):
     id: str
 
+    model_config = {"from_attributes": True}
+
 class CourrierGenerate(BaseModel):
     user_id: str
     detenu_id: Optional[str] = None
@@ -42,4 +46,4 @@ class CourrierGenerate(BaseModel):
 class CourrierOut(BaseModel):
     courrier_id: str
     contenu: str
-    metadata: dict
+    metadata: Any = {}
